@@ -1,7 +1,7 @@
 # FILE: maxtempweatherpredict.py
 # AUTHOR: Ritik Pratap Singh Patel
 # COMPLETION DATE: 07 May 2024
-# DESCRIPTION: A weather prediction, analyzing various aspects and giving max temperature and visualization implementation using dataset i.e. weather.csv
+# DESCRIPTION: A weather prediction model to forecast maximum temperatures based on historical weather data using dataset i.e. weather.csv
 # GUIDANCE: Zidio Development
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 
-weather = pd.read_csv(r"weather.csv", index_col="DATE")
+weather = pd.read_csv(r"../data/weather.csv", index_col="DATE")
 print(weather)
 
 null_pct = weather.apply(pd.isnull).sum() / weather.shape[0]
