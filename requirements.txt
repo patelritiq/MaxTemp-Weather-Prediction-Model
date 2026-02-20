@@ -1,0 +1,12 @@
+# MaxTemp Weather Prediction Model Dependencies
+
+# Data manipulation and analysis
+pandas>=1.3.0
+
+# Machine learning
+scikit-learn>=0.24.0
+
+# Data visualization
+matplotlib>=3.4.0
+
+# Note: Python 3.x required
