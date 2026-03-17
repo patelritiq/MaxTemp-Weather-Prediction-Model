@@ -1,69 +1,64 @@
-# MaxTemp Weather Prediction Model 🌡️
+# MaxTemp Weather Prediction Model
 
 [![Python](https://img.shields.io/badge/Python-3.x-blue.svg)](https://www.python.org/)
 [![pandas](https://img.shields.io/badge/pandas-Data%20Analysis-150458.svg)](https://pandas.pydata.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-orange.svg)](https://scikit-learn.org/)
+[![XGBoost](https://img.shields.io/badge/XGBoost-Gradient%20Boosting-red.svg)](https://xgboost.readthedocs.io/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-Fast%20Boosting-brightgreen.svg)](https://lightgbm.readthedocs.io/)
 [![matplotlib](https://img.shields.io/badge/matplotlib-Visualization-11557c.svg)](https://matplotlib.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **time-series weather prediction model** trained on **19,288 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with EDA, data cleaning, feature engineering, Ridge Regression modeling, and backtesting validation.
+A **time-series weather prediction model** trained on **19,288 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with data cleaning, feature engineering, multi-model comparison, and backtesting validation.
 
 ---
 
-## Project Overview 📊 
+## Project Overview
 
 ### What is MaxTemp Weather PM?
 
-This project develops a machine learning model to predict maximum daily temperatures using historical weather data. Through systematic feature engineering with rolling averages and temporal aggregates, the model achieves reliable temperature forecasts suitable for weather prediction, agricultural planning, and event scheduling.
+This project develops a machine learning model to predict maximum daily temperatures using historical weather data. Through systematic feature engineering with rolling averages and temporal aggregates, the model compares multiple ML algorithms and selects the best performer for temperature forecasting.
 
 ### Key Statistics
 - **19,288 Historical Records**: Multi-decade weather dataset spanning 50+ years
-- **Ridge Regression Model**: Optimized with alpha=0.1 for temperature prediction
+- **Multi-Model Comparison**: Ridge Regression, Random Forest, XGBoost, LightGBM
 - **Feature Engineering**: Rolling averages (3-day, 14-day) and temporal aggregates (monthly, daily)
 - **Backtesting Validation**: 10-year training window with 90-day evaluation steps
-- **Model Performance**: MAE of 4.79°C, MSE of 37.62°C²
-- **Reusable Pipeline**: Modular functions for preprocessing, training, and evaluation
+- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C
+- **Structured Logging**: Full execution logs saved to `model_training.log`
 
 ---
 
-## Project Impact & Applications 🎯 
+## Project Impact & Applications
 
 ### Real-World Use Cases
 
 **Weather Forecasting Services**
 - Provide temperature predictions for daily weather reports
 - Support meteorological analysis and climate studies
-- Enable short-term and medium-term temperature forecasting
 
 **Agricultural Planning**
 - Help farmers plan planting and harvesting schedules
 - Predict frost risks and heat waves
-- Optimize irrigation and crop protection strategies
 
 **Event Planning & Management**
 - Assist in scheduling outdoor events
 - Support logistics planning for weather-sensitive operations
-- Enable proactive decision-making for event organizers
 
 **Energy Management**
 - Forecast heating and cooling demand
 - Optimize energy distribution and pricing
-- Support renewable energy planning (solar, wind)
-
-**Internal Training & Reference**
-- Serves as a reference implementation for time-series prediction
-- Demonstrates end-to-end ML pipeline development
-- Provides reusable analytics framework for similar projects
 
 ---
 
-## Technical Overview 💡 
+## Technical Overview
 
 ### Model Architecture
-- **Algorithm**: Ridge Regression (L2 regularization, alpha=0.1)
+- **Algorithms Compared**: Ridge Regression, Random Forest, XGBoost, LightGBM
+- **Best Model**: Automatically selected based on lowest MAE
 - **Training Data**: 19,288 historical weather records
 - **Validation Strategy**: Backtesting with 10-year initial training, 90-day evaluation steps
 - **Target Variable**: Maximum daily temperature (TMAX)
+- **Model Persistence**: Best model saved to `models/best_model.pkl`
 
 ### Feature Engineering
 - **Rolling Averages**: 3-day and 14-day windows for TMAX, TMIN, PRCP
@@ -71,24 +66,28 @@ This project develops a machine learning model to predict maximum daily temperat
 - **Temporal Aggregates**: Expanding monthly and daily averages
 - **Data Cleaning**: Null value handling (<5% threshold), forward-fill imputation
 
-### Model Performance
-- **Mean Absolute Error (MAE)**: 4.79°C
-- **Mean Squared Error (MSE)**: 37.62°C²
-- **Evaluation**: 15,623 predictions across backtesting windows
+### Model Comparison Results
+| Model         | MAE (°C) | MSE (°C²) | RMSE (°C) |
+|---------------|----------|-----------|-----------|
+| Ridge         | 4.79     | 37.62     | 6.13      |
+| Random Forest | 5.02     | 41.53     | 6.44      |
+| XGBoost       | 4.80     | 37.81     | 6.15      |
+| LightGBM      | 6.89     | 71.06     | 8.43      |
 
 ### Reusable Analytics Pipeline
 - `backtest()`: Time-series cross-validation function
 - `compute_rolling()`: Rolling window feature generation
 - `expand_mean()`: Temporal aggregate computation
 - `pct_diff()`: Percentage difference calculation
+- `calculate_rmse()`: RMSE metric computation
 
 ---
 
-## Getting Started 🚀 
+## Getting Started
 
 ### Prerequisites
 - Python 3.x
-- Required packages: pandas, matplotlib, scikit-learn
+- Required packages: see `requirements.txt`
 
 ### Installation
 
@@ -116,84 +115,88 @@ This project develops a machine learning model to predict maximum daily temperat
    ```
 
 3. **Output:**
-   - Model training and evaluation metrics (MAE, MSE)
+   - Model comparison table (MAE, MSE, RMSE for all models)
+   - Best model logged and saved to `models/best_model.pkl`
+   - Execution log saved to `model_training.log`
    - Visualizations: Snow depth trends, prediction error distribution
-   - Backtesting results with actual vs. predicted temperatures
 
 ---
 
-## Project Structure 📁 
+## Project Structure
 
 ```
-MaxTemp-Weather-PM/
-├── src/                         # Source code
-│   └── maxtempweatherpredict.py # Main prediction script
-├── data/                        # Dataset
-│   └── weather.csv              # Historical weather data (19,288 records)
-├── requirements.txt             # Python dependencies
-├── LICENSE                      # MIT License
-└── README.md                    # Project documentation
+MaxTemp-Weather-Prediction-Model/
+├── src/
+│   ├── maxtempweatherpredict.py  # Main prediction script
+│   └── config.py                 # Hyperparameters and settings
+├── data/
+│   └── weather.csv               # Historical weather data (19,288 records)
+├── models/                       # Saved trained models (git-ignored)
+│   └── best_model.pkl
+├── requirements.txt              # Python dependencies
+├── LICENSE                       # MIT License
+└── README.md                     # Project documentation
 ```
 
 ---
 
-## Model Configuration 🔧 
+## Model Configuration
 
-### Ridge Regression Parameters
+All hyperparameters are centralized in `src/config.py`:
+
 ```python
-Ridge(alpha=0.1)  # L2 regularization strength
-```
+# Model Parameters
+ALPHA = 0.1                    # Ridge regularization strength
+RANDOM_FOREST_N_ESTIMATORS = 10
+XGBOOST_N_ESTIMATORS = 10
+LIGHTGBM_N_ESTIMATORS = 10
 
-### Backtesting Configuration
-```python
-start = 3650      # 10-year initial training period
-step = 90         # 90-day evaluation windows
-```
+# Backtest Configuration
+BACKTEST_START = 3650          # 10-year initial training period
+BACKTEST_STEP = 90             # 90-day evaluation windows
 
-### Rolling Window Sizes
-```python
-rolling_horizons = [3, 14]  # Short-term and medium-term patterns
+# Feature Engineering
+ROLLING_HORIZONS = [3, 14]    # Short-term and medium-term patterns
+NULL_THRESHOLD = 0.05          # Drop columns with >5% null values
 ```
 
 ---
 
-## Future Enhancements 🚧 
+## Future Enhancements
 
-- Incorporate additional weather features (humidity, pressure, wind patterns)
-- Implement advanced models (LSTM, XGBoost, Prophet)
-- Add real-time weather data integration via APIs
-- Develop web-based interface for interactive predictions
-- Extend to multi-day forecasting (3-day, 7-day predictions)
-- Include confidence intervals and uncertainty quantification
+- Add LSTM / Transformer model for deep learning comparison
+- Hyperparameter tuning with GridSearchCV or Optuna
+- Real-time weather data integration via Open-Meteo API
+- Streamlit dashboard for interactive predictions
+- Multi-day forecasting (3-day, 7-day predictions)
+- Confidence intervals and uncertainty quantification
 
 ---
 
-## Contributing 🤝 
+## Contributing
 
 Contributions welcome! Areas for improvement:
 - Model optimization and hyperparameter tuning
 - Additional feature engineering techniques
-- Alternative ML algorithms comparison
 - Enhanced visualization and reporting
 - Documentation improvements
 
 ---
 
-## License 📄 
+## License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Author & Context 👨‍💻 
+## Author & Context
 
-**Ritik Pratap Singh Patel**  
+**Ritik Pratap Singh Patel**
 Data Science & Machine Learning
 
 **Project Context:**
 - Developed as a learning internship project with guidance from Zidio Development
-- Completion Date: May 7, 2024
-- Purpose: Demonstrates time-series prediction, feature engineering, and ML pipeline development
+- Purpose: Demonstrates time-series prediction, feature engineering, and multi-model ML pipeline
 
 **Connect:**
 - Email: patelritiq@gmail.com
@@ -202,15 +205,15 @@ Data Science & Machine Learning
 
 ---
 
-## Acknowledgments 🙏 
+## Acknowledgments
 
 - **Zidio Development**: For project guidance and dataset provision
-- **scikit-learn**: For robust machine learning tools
+- **scikit-learn, XGBoost, LightGBM**: For robust machine learning tools
 - **pandas & matplotlib**: For data manipulation and visualization
 
 ---
 
-## Project Statistics 📈 
+## Project Statistics
 
 ![GitHub stars](https://img.shields.io/github/stars/patelritiq/MaxTemp-Weather-Prediction-Model?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/patelritiq/MaxTemp-Weather-Prediction-Model?style=social)
@@ -218,4 +221,4 @@ Data Science & Machine Learning
 
 ---
 
-*Predicting tomorrow's weather with today's data.* 🌡️☀️
+*Predicting tomorrow's weather with today's data.🌡️☀️* 
