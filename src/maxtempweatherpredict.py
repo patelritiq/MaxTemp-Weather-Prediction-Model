@@ -1,14 +1,18 @@
 # FILE: maxtempweatherpredict.py
 # AUTHOR: Ritik Pratap Singh Patel
-# COMPLETION DATE: 07 May 2024
 # DESCRIPTION: A weather prediction model to forecast maximum temperatures based on historical weather data using dataset i.e. weather.csv
 # GUIDANCE: Zidio Development
+
 import os
 import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from config import (
+    ALPHA, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
+    ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -48,7 +52,7 @@ def expand_mean(df):
     return df.expanding(1).mean()
 
 
-def backtest(weather, model, predictors, start=3650, step=90):
+def backtest(weather, model, predictors, start=BACKTEST_START, step=BACKTEST_STEP):
     all_predictions = []
 
     for i in range(start, weather.shape[0], step):
@@ -82,7 +86,7 @@ def main():
     null_pct = weather.apply(pd.isnull).sum() / weather.shape[0]
     logger.debug(f"Null percentage per column:\n{null_pct}")
 
-    valid_columns = weather.columns[null_pct < 0.05]
+    valid_columns = weather.columns[null_pct < NULL_THRESHOLD]
     logger.info(f"Valid columns retained: {list(valid_columns)}")
 
     weather = weather[valid_columns].copy()
@@ -111,8 +115,8 @@ def main():
 
     # --- Initial Model & Backtest ---
     logger.info("Training initial Ridge Regression model (alpha=0.1)...")
-    rr = Ridge(alpha=0.1)
-    predictors = weather.columns[~weather.columns.isin(["target", "name", "station"])]
+    rr = Ridge(alpha=ALPHA)
+    predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
 
     predictions = backtest(weather, rr, predictors)
     mae_initial = mean_absolute_error(predictions["actual"], predictions["prediction"])
@@ -121,15 +125,14 @@ def main():
 
     # --- Feature Engineering: Rolling Windows ---
     logger.info("Engineering rolling window features (3-day and 14-day horizons)...")
-    rolling_horizons = [3, 14]
-    for horizon in rolling_horizons:
-        for col in ["tmax", "tmin", "prcp"]:
+    for horizon in ROLLING_HORIZONS:
+        for col in FEATURE_COLUMNS:
             weather = compute_rolling(weather, horizon, col)
     logger.info(f"Rolling features added. New shape: {weather.shape}")
 
     # --- Feature Engineering: Temporal Aggregates ---
     logger.info("Engineering temporal aggregate features (monthly and daily averages)...")
-    for col in ["tmax", "tmin", "prcp"]:
+    for col in FEATURE_COLUMNS:
         weather[f"month_avg_{col}"] = (
             weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
         )
@@ -142,9 +145,9 @@ def main():
 
     # --- Final Model & Evaluation ---
     logger.info("Training final model with engineered features...")
-    weather = weather.iloc[14:, :]
+    weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
     weather = weather.fillna(0)
-    predictors = weather.columns[~weather.columns.isin(["target", "name", "station"])]
+    predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
     predictions = backtest(weather, rr, predictors)
     mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
     mse = mean_squared_error(predictions["actual"], predictions["prediction"])
