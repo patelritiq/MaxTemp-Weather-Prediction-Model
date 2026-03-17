@@ -6,12 +6,20 @@
 import os
 import logging
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import joblib
+from tqdm import tqdm
 from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
 from config import (
     ALPHA, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
-    ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET
+    ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET,
+    RANDOM_FOREST_N_ESTIMATORS, XGBOOST_N_ESTIMATORS, LIGHTGBM_N_ESTIMATORS,
+    RANDOM_STATE, MODELS_DIR, BEST_MODEL_FILENAME
 )
 
 # Configure logging
@@ -50,6 +58,11 @@ def compute_rolling(weather, horizon, col):
 
 def expand_mean(df):
     return df.expanding(1).mean()
+
+
+def calculate_rmse(actual, predicted):
+    """Calculate Root Mean Squared Error"""
+    return np.sqrt(mean_squared_error(actual, predicted))
 
 
 def backtest(weather, model, predictors, start=BACKTEST_START, step=BACKTEST_STEP):
@@ -144,27 +157,16 @@ def main():
         logger.error(f"Error defining target variable: {e}")
         return
 
-    # --- Initial Model & Backtest ---
-    logger.info("Training initial Ridge Regression model (alpha=0.1)...")
+    # --- Prepare Predictors ---
+    logger.info("Preparing predictors for model training...")
     try:
-        rr = Ridge(alpha=ALPHA)
         predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
         
         if len(predictors) == 0:
             logger.error("No valid predictors found after filtering")
             return
-
-        predictions = backtest(weather, rr, predictors)
-        
-        if predictions.empty:
-            logger.error("Backtest produced no predictions")
-            return
-        
-        mae_initial = mean_absolute_error(predictions["actual"], predictions["prediction"])
-        logger.info(f"Initial model MAE: {mae_initial:.2f} °C")
-        logger.debug(f"Top 5 feature coefficients:\n{pd.Series(rr.coef_, index=predictors).nlargest(5)}")
     except Exception as e:
-        logger.error(f"Error during initial model training: {e}")
+        logger.error(f"Error preparing predictors: {e}")
         return
 
     # --- Feature Engineering: Rolling Windows ---
@@ -201,32 +203,119 @@ def main():
         logger.error(f"Error during temporal feature engineering: {e}")
         return
 
-    # --- Final Model & Evaluation ---
-    logger.info("Training final model with engineered features...")
+    # --- Final Model & Evaluation with Model Comparison ---
+    logger.info("Training and comparing multiple models with engineered features...")
     try:
         weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
         weather = weather.fillna(0)
         predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
         
         if len(predictors) == 0:
-            logger.error("No valid predictors found for final model")
+            logger.error("No valid predictors found for model comparison")
             return
-        
-        predictions = backtest(weather, rr, predictors)
-        
-        if predictions.empty:
-            logger.error("Final backtest produced no predictions")
-            return
-        
-        mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
-        mse = mean_squared_error(predictions["actual"], predictions["prediction"])
 
-        logger.info(f"Final model trained successfully")
-        logger.info(f"Mean Absolute Error: {mae:.2f} °C")
-        logger.info(f"Mean Squared Error: {mse:.2f} °C²")
-        logger.debug(f"Worst predictions:\n{predictions.sort_values('diff', ascending=False).head()}")
+        # Define models to compare
+        models = {
+            'Ridge': Ridge(alpha=ALPHA),
+            'Random Forest': RandomForestRegressor(
+                n_estimators=RANDOM_FOREST_N_ESTIMATORS,
+                random_state=RANDOM_STATE,
+                n_jobs=-1
+            ),
+            'XGBoost': XGBRegressor(
+                n_estimators=XGBOOST_N_ESTIMATORS,
+                random_state=RANDOM_STATE,
+                verbosity=0
+            ),
+            'LightGBM': LGBMRegressor(
+                n_estimators=LIGHTGBM_N_ESTIMATORS,
+                random_state=RANDOM_STATE,
+                verbose=-1
+            )
+        }
+        
+        logger.info(f"Training {len(models)} models for comparison...")
+        model_results = {}
+        
+        for model_name, model in tqdm(models.items(), desc="Training models", unit="model"):
+            logger.info(f"Training {model_name}...")
+            try:
+                predictions = backtest(weather, model, predictors)
+                
+                if predictions.empty:
+                    logger.warning(f"No predictions from {model_name}, skipping")
+                    continue
+                
+                mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
+                mse = mean_squared_error(predictions["actual"], predictions["prediction"])
+                rmse = calculate_rmse(predictions["actual"], predictions["prediction"])
+                
+                model_results[model_name] = {
+                    'MAE': mae,
+                    'MSE': mse,
+                    'RMSE': rmse,
+                    'model': model,
+                    'predictions': predictions
+                }
+                
+                logger.info(f"{model_name} - MAE: {mae:.2f} °C, RMSE: {rmse:.2f} °C")
+            except Exception as e:
+                logger.warning(f"Error training {model_name}: {e}")
+                continue
+        
+        if not model_results:
+            logger.error("No models trained successfully")
+            return
+        
+        # Create comparison table
+        comparison_data = {
+            model_name: {
+                'MAE (°C)': f"{results['MAE']:.2f}",
+                'MSE (°C²)': f"{results['MSE']:.2f}",
+                'RMSE (°C)': f"{results['RMSE']:.2f}"
+            }
+            for model_name, results in model_results.items()
+        }
+        
+        comparison_df = pd.DataFrame(comparison_data).T
+        logger.info(f"\n{'='*70}")
+        logger.info("MODEL COMPARISON RESULTS")
+        logger.info(f"{'='*70}")
+        logger.info(f"\n{comparison_df.to_string()}\n")
+        logger.info(f"{'='*70}")
+        
+        # Find best model
+        best_model_name = min(model_results.keys(), key=lambda x: model_results[x]['MAE'])
+        best_model_data = model_results[best_model_name]
+        best_mae = best_model_data['MAE']
+        best_rmse = best_model_data['RMSE']
+        best_mse = best_model_data['MSE']
+        
+        logger.info(f"\n🏆 BEST MODEL: {best_model_name}")
+        logger.info(f"   MAE: {best_mae:.2f} °C")
+        logger.info(f"   MSE: {best_mse:.2f} °C²")
+        logger.info(f"   RMSE: {best_rmse:.2f} °C\n")
+        
+        # Save best model
+        try:
+            if not os.path.exists(MODELS_DIR):
+                os.makedirs(MODELS_DIR)
+                logger.info(f"Created models directory: {MODELS_DIR}")
+            
+            model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
+            joblib.dump(best_model_data['model'], model_path)
+            logger.info(f"✓ Best model saved to: {model_path}")
+        except Exception as e:
+            logger.warning(f"Error saving best model: {e}")
+        
+        # Use best model for final results
+        predictions = best_model_data['predictions']
+        mae = best_model_data['MAE']
+        mse = best_model_data['MSE']
+        rmse = best_model_data['RMSE']
+        
     except Exception as e:
-        logger.error(f"Error during final model training: {e}")
+        logger.error(f"Error during model comparison: {e}")
         return
 
     # --- Plot: Error Distribution ---
@@ -247,7 +336,7 @@ def main():
         # Continue execution even if plotting fails
 
     logger.info("Pipeline completed successfully!")
-    logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C²")
+    logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C² | RMSE: {rmse:.2f} °C")
 
 
 if __name__ == "__main__":

@@ -20,3 +20,13 @@ EXCLUDE_COLUMNS = ["target", "name", "station"]  # Columns to exclude from predi
 
 # Data Processing
 ROLLING_WINDOW_OFFSET = 14  # Rows to skip after rolling features (matches max rolling horizon)
+
+# Model Comparison Parameters
+RANDOM_FOREST_N_ESTIMATORS = 10
+XGBOOST_N_ESTIMATORS = 10
+LIGHTGBM_N_ESTIMATORS = 10
+RANDOM_STATE = 42  # For reproducibility
+
+# Model Saving
+MODELS_DIR = "models"  # Directory to save trained models
+BEST_MODEL_FILENAME = "best_model.pkl"  # Filename for best model
