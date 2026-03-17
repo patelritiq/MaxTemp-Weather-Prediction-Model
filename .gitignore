@@ -26,6 +26,10 @@ Thumbs.db
 # Project specific
 *.log
 
+# Trained models (generated artifacts)
+models/
+*.pkl
+
 # Data (if you want to exclude large datasets from git)
 # Uncomment the line below if weather.csv is too large
 # data/*.csv

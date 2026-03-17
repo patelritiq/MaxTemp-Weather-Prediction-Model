@@ -291,7 +291,7 @@ def main():
         best_rmse = best_model_data['RMSE']
         best_mse = best_model_data['MSE']
         
-        logger.info(f"\n🏆 BEST MODEL: {best_model_name}")
+        logger.info(f"\n[BEST MODEL] {best_model_name}")
         logger.info(f"   MAE: {best_mae:.2f} °C")
         logger.info(f"   MSE: {best_mse:.2f} °C²")
         logger.info(f"   RMSE: {best_rmse:.2f} °C\n")
@@ -304,7 +304,7 @@ def main():
             
             model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
             joblib.dump(best_model_data['model'], model_path)
-            logger.info(f"✓ Best model saved to: {model_path}")
+            logger.info(f"[SAVED] Best model saved to: {model_path}")
         except Exception as e:
             logger.warning(f"Error saving best model: {e}")
         
