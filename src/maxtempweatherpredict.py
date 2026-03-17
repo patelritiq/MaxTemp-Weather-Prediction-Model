@@ -75,99 +75,176 @@ def backtest(weather, model, predictors, start=BACKTEST_START, step=BACKTEST_STE
 def main():
     # --- Load Data ---
     logger.info("Starting weather prediction pipeline...")
-    base_path = os.path.dirname(__file__)
-    file_path = os.path.join(base_path, "..", "data", "weather.csv")
-    weather = pd.read_csv(file_path, index_col="DATE")
-    logger.info(f"Data loaded successfully. Shape: {weather.shape}")
-    logger.debug(f"First few rows:\n{weather.head()}")
+    try:
+        base_path = os.path.dirname(__file__)
+        file_path = os.path.join(base_path, "..", "data", "weather.csv")
+        
+        if not os.path.exists(file_path):
+            logger.error(f"Data file not found at {file_path}")
+            return
+        
+        weather = pd.read_csv(file_path, index_col="DATE")
+        logger.info(f"Data loaded successfully. Shape: {weather.shape}")
+        logger.debug(f"First few rows:\n{weather.head()}")
+    except FileNotFoundError as e:
+        logger.error(f"FileNotFoundError: {e}")
+        return
+    except pd.errors.ParserError as e:
+        logger.error(f"Error parsing CSV file: {e}")
+        return
+    except Exception as e:
+        logger.error(f"Unexpected error loading data: {e}")
+        return
 
     # --- Clean Data ---
     logger.info("Cleaning data: removing columns with >5% null values...")
-    null_pct = weather.apply(pd.isnull).sum() / weather.shape[0]
-    logger.debug(f"Null percentage per column:\n{null_pct}")
+    try:
+        null_pct = weather.apply(pd.isnull).sum() / weather.shape[0]
+        logger.debug(f"Null percentage per column:\n{null_pct}")
 
-    valid_columns = weather.columns[null_pct < NULL_THRESHOLD]
-    logger.info(f"Valid columns retained: {list(valid_columns)}")
+        valid_columns = weather.columns[null_pct < NULL_THRESHOLD]
+        logger.info(f"Valid columns retained: {list(valid_columns)}")
 
-    weather = weather[valid_columns].copy()
-    weather.columns = weather.columns.str.lower()
-    weather = weather.ffill()
-    logger.info(f"Data cleaned. Remaining nulls: {weather.apply(pd.isnull).sum().sum()}")
-    logger.debug(f"Invalid values (9999): {weather.apply(lambda x: (x == 9999).sum()).sum()}")
-    logger.debug(f"Data types:\n{weather.dtypes}")
+        weather = weather[valid_columns].copy()
+        weather.columns = weather.columns.str.lower()
+        weather = weather.ffill()
+        logger.info(f"Data cleaned. Remaining nulls: {weather.apply(pd.isnull).sum().sum()}")
+        logger.debug(f"Invalid values (9999): {weather.apply(lambda x: (x == 9999).sum()).sum()}")
+        logger.debug(f"Data types:\n{weather.dtypes}")
+    except Exception as e:
+        logger.error(f"Error during data cleaning: {e}")
+        return
 
     # --- Explore & Visualize ---
     logger.info("Exploring temporal distribution...")
-    weather.index = pd.to_datetime(weather.index)
-    year_counts = weather.index.year.value_counts().sort_index()
-    logger.info(f"Data spans {year_counts.index.min()} to {year_counts.index.max()}")
-    weather["snwd"].plot()
-    plt.xlabel('Year')
-    plt.ylabel('Snow Depth')
-    plt.title('Snow Depth Over Years')
-    plt.show()
+    try:
+        weather.index = pd.to_datetime(weather.index)
+        year_counts = weather.index.year.value_counts().sort_index()
+        logger.info(f"Data spans {year_counts.index.min()} to {year_counts.index.max()}")
+        weather["snwd"].plot()
+        plt.xlabel('Year')
+        plt.ylabel('Snow Depth')
+        plt.title('Snow Depth Over Years')
+        plt.show()
+    except Exception as e:
+        logger.warning(f"Error during visualization: {e}")
+        # Continue execution even if visualization fails
 
     # --- Define Target ---
     logger.info("Defining target variable (next day's max temperature)...")
-    weather["target"] = weather.shift(-1)["tmax"]
-    weather = weather.ffill()
-    logger.info(f"Target variable created. Shape: {weather.shape}")
+    try:
+        if "tmax" not in weather.columns:
+            logger.error("Required column 'tmax' not found in data")
+            return
+        
+        weather["target"] = weather.shift(-1)["tmax"]
+        weather = weather.ffill()
+        logger.info(f"Target variable created. Shape: {weather.shape}")
+    except Exception as e:
+        logger.error(f"Error defining target variable: {e}")
+        return
 
     # --- Initial Model & Backtest ---
     logger.info("Training initial Ridge Regression model (alpha=0.1)...")
-    rr = Ridge(alpha=ALPHA)
-    predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
+    try:
+        rr = Ridge(alpha=ALPHA)
+        predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
+        
+        if len(predictors) == 0:
+            logger.error("No valid predictors found after filtering")
+            return
 
-    predictions = backtest(weather, rr, predictors)
-    mae_initial = mean_absolute_error(predictions["actual"], predictions["prediction"])
-    logger.info(f"Initial model MAE: {mae_initial:.2f} °C")
-    logger.debug(f"Top 5 feature coefficients:\n{pd.Series(rr.coef_, index=predictors).nlargest(5)}")
+        predictions = backtest(weather, rr, predictors)
+        
+        if predictions.empty:
+            logger.error("Backtest produced no predictions")
+            return
+        
+        mae_initial = mean_absolute_error(predictions["actual"], predictions["prediction"])
+        logger.info(f"Initial model MAE: {mae_initial:.2f} °C")
+        logger.debug(f"Top 5 feature coefficients:\n{pd.Series(rr.coef_, index=predictors).nlargest(5)}")
+    except Exception as e:
+        logger.error(f"Error during initial model training: {e}")
+        return
 
     # --- Feature Engineering: Rolling Windows ---
     logger.info("Engineering rolling window features (3-day and 14-day horizons)...")
-    for horizon in ROLLING_HORIZONS:
-        for col in FEATURE_COLUMNS:
-            weather = compute_rolling(weather, horizon, col)
-    logger.info(f"Rolling features added. New shape: {weather.shape}")
+    try:
+        for horizon in ROLLING_HORIZONS:
+            for col in FEATURE_COLUMNS:
+                if col not in weather.columns:
+                    logger.warning(f"Column '{col}' not found, skipping rolling feature for {col}")
+                    continue
+                weather = compute_rolling(weather, horizon, col)
+        logger.info(f"Rolling features added. New shape: {weather.shape}")
+    except Exception as e:
+        logger.error(f"Error during rolling feature engineering: {e}")
+        return
 
     # --- Feature Engineering: Temporal Aggregates ---
     logger.info("Engineering temporal aggregate features (monthly and daily averages)...")
-    for col in FEATURE_COLUMNS:
-        weather[f"month_avg_{col}"] = (
-            weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
-        )
-        weather[f"day_avg_{col}"] = (
-            weather[col]
-            .groupby(weather.index.day_of_year, group_keys=False)
-            .apply(expand_mean)
-        )
-    logger.info(f"Temporal features added. Final shape: {weather.shape}")
+    try:
+        for col in FEATURE_COLUMNS:
+            if col not in weather.columns:
+                logger.warning(f"Column '{col}' not found, skipping temporal features for {col}")
+                continue
+            weather[f"month_avg_{col}"] = (
+                weather[col].groupby(weather.index.month, group_keys=False).apply(expand_mean)
+            )
+            weather[f"day_avg_{col}"] = (
+                weather[col]
+                .groupby(weather.index.day_of_year, group_keys=False)
+                .apply(expand_mean)
+            )
+        logger.info(f"Temporal features added. Final shape: {weather.shape}")
+    except Exception as e:
+        logger.error(f"Error during temporal feature engineering: {e}")
+        return
 
     # --- Final Model & Evaluation ---
     logger.info("Training final model with engineered features...")
-    weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
-    weather = weather.fillna(0)
-    predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
-    predictions = backtest(weather, rr, predictors)
-    mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
-    mse = mean_squared_error(predictions["actual"], predictions["prediction"])
+    try:
+        weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
+        weather = weather.fillna(0)
+        predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
+        
+        if len(predictors) == 0:
+            logger.error("No valid predictors found for final model")
+            return
+        
+        predictions = backtest(weather, rr, predictors)
+        
+        if predictions.empty:
+            logger.error("Final backtest produced no predictions")
+            return
+        
+        mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
+        mse = mean_squared_error(predictions["actual"], predictions["prediction"])
 
-    logger.info(f"Final model trained successfully")
-    logger.info(f"Mean Absolute Error: {mae:.2f} °C")
-    logger.info(f"Mean Squared Error: {mse:.2f} °C²")
-    logger.debug(f"Worst predictions:\n{predictions.sort_values('diff', ascending=False).head()}")
+        logger.info(f"Final model trained successfully")
+        logger.info(f"Mean Absolute Error: {mae:.2f} °C")
+        logger.info(f"Mean Squared Error: {mse:.2f} °C²")
+        logger.debug(f"Worst predictions:\n{predictions.sort_values('diff', ascending=False).head()}")
+    except Exception as e:
+        logger.error(f"Error during final model training: {e}")
+        return
 
     # --- Plot: Error Distribution ---
     logger.info("Generating error distribution plot...")
-    plt.plot(predictions["diff"].round().value_counts().sort_index() / predictions.shape[0])
-    plt.xlabel("Rounded Prediction Error (°C)")
-    plt.ylabel("Relative Frequency")
-    plt.title("Distribution of Prediction Errors")
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.xticks(range(int(predictions["diff"].min()), int(predictions["diff"].max()) + 1))
-    plt.locator_params(axis='x', nbins=15)
-    plt.tight_layout()
-    plt.show()
+    try:
+        plt.plot(predictions["diff"].round().value_counts().sort_index() / predictions.shape[0])
+        plt.xlabel("Rounded Prediction Error (°C)")
+        plt.ylabel("Relative Frequency")
+        plt.title("Distribution of Prediction Errors")
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.xticks(range(int(predictions["diff"].min()), int(predictions["diff"].max()) + 1))
+        plt.locator_params(axis='x', nbins=15)
+        plt.tight_layout()
+        plt.show()
+        logger.info("Error distribution plot generated successfully")
+    except Exception as e:
+        logger.warning(f"Error generating plot: {e}")
+        # Continue execution even if plotting fails
 
     logger.info("Pipeline completed successfully!")
     logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C²")
