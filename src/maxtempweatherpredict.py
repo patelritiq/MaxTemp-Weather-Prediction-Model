@@ -470,11 +470,9 @@ def main():
     # --- Plot: Feature Importance (Ridge only) ---
     logger.info("Generating feature importance plot...")
     try:
-        # Only Ridge has .coef_ — skip for other models
         best_model_obj = joblib.load(os.path.join(MODELS_DIR, BEST_MODEL_FILENAME))
         if hasattr(best_model_obj, 'coef_'):
-            predictors_used = predictions.columns.difference(["actual", "prediction", "diff"])
-            coef_series = pd.Series(best_model_obj.coef_, index=predictors_used)
+            coef_series = pd.Series(best_model_obj.coef_, index=predictors)
 
             # Top 20 by absolute value, sorted for readability
             top_features = coef_series.abs().nlargest(20).index

@@ -19,12 +19,12 @@ A **time-series weather prediction model** trained on **19,288 historical weathe
 This project develops a machine learning model to predict maximum daily temperatures using historical weather data. Through systematic feature engineering with rolling averages and temporal aggregates, the model compares multiple ML algorithms and selects the best performer for temperature forecasting.
 
 ### Key Statistics
-- **19,288 Historical Records**: Multi-decade weather dataset spanning 50+ years
+- **19,287 Historical Records**: Weather dataset spanning 1970 to 2022 (52 years)
 - **Multi-Model Comparison**: Ridge Regression, Random Forest, XGBoost, LightGBM
 - **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit for Ridge alpha optimization
 - **Feature Engineering**: Rolling averages (3-day, 7-day, 14-day) and temporal aggregates (monthly, daily)
 - **Backtesting Validation**: 10-year training window with 90-day evaluation steps
-- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C, R² of 0.87
+- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C, R² of 0.8747, MAPE of 8.90%
 - **Structured Logging**: Full execution logs saved to `model_training.log`
 - **Model Persistence**: Best model saved and reusable without retraining
 
@@ -58,7 +58,7 @@ This project develops a machine learning model to predict maximum daily temperat
 - **Algorithms Compared**: Ridge Regression, Random Forest, XGBoost, LightGBM
 - **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit (5 folds) for Ridge alpha — searches `[0.001, 0.01, 0.1, 1.0, 10.0, 100.0]`
 - **Best Model**: Automatically selected based on lowest MAE, saved to disk
-- **Training Data**: 19,288 historical weather records
+- **Training Data**: 19,287 historical weather records (1970–2022)
 - **Validation Strategy**: Backtesting with 10-year initial training, 90-day evaluation steps
 - **Target Variable**: Maximum daily temperature (TMAX)
 - **Model Persistence**: Best model saved to `models/best_model.pkl`, reloadable via `RETRAIN_MODEL = False` in config
@@ -81,12 +81,12 @@ All models are evaluated on five metrics:
 - **MAPE** — Error as a percentage (handles scale differences across seasons)
 
 ### Model Comparison Results
-| Model         | MAE (°C) | MSE (°C²) | RMSE (°C) | R²   | MAPE (%) |
-|---------------|----------|-----------|-----------|------|----------|
-| Ridge         | 4.79     | 37.62     | 6.13      | 0.87 | 8.92     |
-| Random Forest | 5.02     | 41.53     | 6.44      | 0.80 | 15.10    |
-| XGBoost       | 4.80     | 37.81     | 6.15      | 0.81 | 14.40    |
-| LightGBM      | 6.89     | 71.06     | 8.43      | 0.71 | 20.20    |
+| Model         | MAE (°C) | MSE (°C²) | RMSE (°C) | R²     | MAPE (%) |
+|---------------|----------|-----------|-----------|--------|----------|
+| Ridge         | 4.79     | 37.62     | 6.13      | 0.8747 | 8.90     |
+| Random Forest | 5.00     | 41.39     | 6.43      | 0.8621 | 9.25     |
+| XGBoost       | 4.81     | 38.08     | 6.17      | 0.8732 | 8.94     |
+| LightGBM      | 6.89     | 71.10     | 8.43      | 0.7631 | 13.19    |
 
 ### Performance Breakdown
 Model performance is reported per-year and per-season to identify where the model is strong or weak:
