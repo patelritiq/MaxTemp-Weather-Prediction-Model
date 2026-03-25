@@ -18,6 +18,7 @@ NULL_THRESHOLD = 0.05  # Drop columns with >5% null values
 ROLLING_HORIZONS = [3, 7, 14]  # Days for rolling window features
 FEATURE_COLUMNS = ["tmax", "tmin", "prcp"]  # Columns to engineer features from
 EXCLUDE_COLUMNS = ["target", "name", "station"]  # Columns to exclude from predictors
+LAG_DAYS = [1, 3, 7]  # Lag days for tmax lag features
 
 # Data Processing
 ROLLING_WINDOW_OFFSET = 14  # Rows to skip after rolling features (matches max rolling horizon)

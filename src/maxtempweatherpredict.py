@@ -19,7 +19,7 @@ from lightgbm import LGBMRegressor
 from config import (
     ALPHA, RIDGE_ALPHA_GRID, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
     ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET,
-    RANDOM_FOREST_N_ESTIMATORS, XGBOOST_N_ESTIMATORS, LIGHTGBM_N_ESTIMATORS,
+    LAG_DAYS, RANDOM_FOREST_N_ESTIMATORS, XGBOOST_N_ESTIMATORS, LIGHTGBM_N_ESTIMATORS,
     RANDOM_STATE, MODELS_DIR, BEST_MODEL_FILENAME, RETRAIN_MODEL
 )
 
@@ -245,6 +245,16 @@ def main():
         logger.error(f"Error adding year feature: {e}")
         return
 
+    # --- Feature Engineering: Lag Features ---
+    logger.info(f"Adding tmax lag features for {LAG_DAYS} days...")
+    try:
+        for lag in LAG_DAYS:
+            weather[f"tmax_lag_{lag}"] = weather["tmax"].shift(lag)
+        logger.info(f"Lag features added: {[f'tmax_lag_{l}' for l in LAG_DAYS]}")
+    except Exception as e:
+        logger.error(f"Error adding lag features: {e}")
+        return
+
     # --- Final Model & Evaluation with Model Comparison ---
     model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
 
@@ -402,7 +412,7 @@ def main():
                         'R²': round(r2_score(g['actual'], g['prediction']), 4)
                     })
                 )
-                logger.info(
+                logger.debug(
                     f"\n{'='*50}\n"
                     f"PERFORMANCE BY YEAR\n"
                     f"{'='*50}\n"
