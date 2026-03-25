@@ -96,9 +96,24 @@ def load_and_prepare_data():
 
 @st.cache_resource
 def load_model():
-    if not os.path.exists(MODEL_PATH):
-        return None
-    return joblib.load(MODEL_PATH)
+    if os.path.exists(MODEL_PATH):
+        return joblib.load(MODEL_PATH)
+    
+    # Model not found — train Ridge on the fly for Streamlit Cloud
+    st.info("No saved model found. Training Ridge Regression model... (this takes ~30 seconds)")
+    from sklearn.linear_model import Ridge
+    
+    weather = load_and_prepare_data()
+    predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS + ["target"])]
+    weather["target"] = weather["tmax"].shift(-1)
+    weather = weather.ffill()
+    
+    model = Ridge(alpha=100.0)
+    model.fit(weather[predictors], weather["target"])
+    
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    joblib.dump(model, MODEL_PATH)
+    return model
 
 
 def get_predictors(weather):
@@ -121,10 +136,6 @@ st.markdown("---")
 # Load data and model
 weather = load_and_prepare_data()
 model   = load_model()
-
-if model is None:
-    st.error("Model file not found. Please run `src/maxtempweatherpredict.py` first to train and save the model.")
-    st.stop()
 
 predictors   = get_predictors(weather)
 min_date     = weather.index.min().date()
