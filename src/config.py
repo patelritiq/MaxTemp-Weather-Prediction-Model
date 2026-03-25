@@ -4,7 +4,8 @@ Adjust these values to experiment with different model parameters.
 """
 
 # Model Parameters
-ALPHA = 0.1  # Ridge regression regularization strength
+ALPHA = 0.1  # Ridge regression regularization strength (default/fallback)
+RIDGE_ALPHA_GRID = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]  # GridSearchCV candidates
 
 # Backtest Parameters
 BACKTEST_START = 3650  # Starting index for backtesting

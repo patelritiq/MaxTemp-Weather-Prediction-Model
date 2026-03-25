@@ -12,11 +12,12 @@ import joblib
 from tqdm import tqdm
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from config import (
-    ALPHA, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
+    ALPHA, RIDGE_ALPHA_GRID, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
     ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET,
     RANDOM_FOREST_N_ESTIMATORS, XGBOOST_N_ESTIMATORS, LIGHTGBM_N_ESTIMATORS,
     RANDOM_STATE, MODELS_DIR, BEST_MODEL_FILENAME
@@ -63,6 +64,28 @@ def expand_mean(df):
 def calculate_rmse(actual, predicted):
     """Calculate Root Mean Squared Error"""
     return np.sqrt(mean_squared_error(actual, predicted))
+
+
+def tune_ridge_alpha(X_train, y_train, alpha_grid):
+    """Use GridSearchCV with time-series split to find best Ridge alpha"""
+    tscv = TimeSeriesSplit(n_splits=5)
+    grid_search = GridSearchCV(
+        Ridge(),
+        param_grid={'alpha': alpha_grid},
+        scoring='neg_mean_absolute_error',
+        cv=tscv,
+        n_jobs=-1
+    )
+    grid_search.fit(X_train, y_train)
+
+    # Build alpha comparison table
+    results_df = pd.DataFrame({
+        'Alpha': grid_search.cv_results_['param_alpha'],
+        'MAE (°C)': (-grid_search.cv_results_['mean_test_score']).round(4),
+        'Std (°C)': grid_search.cv_results_['std_test_score'].round(4)
+    }).sort_values('Alpha').reset_index(drop=True)
+
+    return grid_search.best_params_['alpha'], results_df
 
 
 def backtest(weather, model, predictors, start=BACKTEST_START, step=BACKTEST_STEP):
@@ -214,9 +237,28 @@ def main():
             logger.error("No valid predictors found for model comparison")
             return
 
+        # Tune Ridge alpha using GridSearchCV
+        logger.info("Tuning Ridge alpha with GridSearchCV...")
+        try:
+            train_data = weather.iloc[:BACKTEST_START]
+            best_alpha, alpha_results = tune_ridge_alpha(
+                train_data[predictors],
+                train_data["target"],
+                RIDGE_ALPHA_GRID
+            )
+            logger.info(f"\n{'='*50}")
+            logger.info("RIDGE ALPHA TUNING RESULTS")
+            logger.info(f"{'='*50}")
+            logger.info(f"\n{alpha_results.to_string(index=False)}\n")
+            logger.info(f"{'='*50}")
+            logger.info(f"Best Ridge alpha: {best_alpha}")
+        except Exception as e:
+            logger.warning(f"GridSearchCV failed, using default alpha={ALPHA}: {e}")
+            best_alpha = ALPHA
+
         # Define models to compare
         models = {
-            'Ridge': Ridge(alpha=ALPHA),
+            'Ridge': Ridge(alpha=best_alpha),
             'Random Forest': RandomForestRegressor(
                 n_estimators=RANDOM_FOREST_N_ESTIMATORS,
                 random_state=RANDOM_STATE,
