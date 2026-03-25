@@ -236,6 +236,15 @@ def main():
         logger.error(f"Error during temporal feature engineering: {e}")
         return
 
+    # --- Feature Engineering: Year ---
+    logger.info("Adding year as a numeric feature to capture long-term climate trend...")
+    try:
+        weather['year'] = weather.index.year
+        logger.info(f"Year feature added. Range: {weather['year'].min()} to {weather['year'].max()}")
+    except Exception as e:
+        logger.error(f"Error adding year feature: {e}")
+        return
+
     # --- Final Model & Evaluation with Model Comparison ---
     model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
 
