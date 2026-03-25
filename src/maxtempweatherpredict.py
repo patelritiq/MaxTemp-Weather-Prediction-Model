@@ -466,7 +466,35 @@ def main():
         logger.info("Error distribution plot generated successfully")
     except Exception as e:
         logger.warning(f"Error generating plot: {e}")
-        # Continue execution even if plotting fails
+
+    # --- Plot: Feature Importance (Ridge only) ---
+    logger.info("Generating feature importance plot...")
+    try:
+        # Only Ridge has .coef_ — skip for other models
+        best_model_obj = joblib.load(os.path.join(MODELS_DIR, BEST_MODEL_FILENAME))
+        if hasattr(best_model_obj, 'coef_'):
+            predictors_used = predictions.columns.difference(["actual", "prediction", "diff"])
+            coef_series = pd.Series(best_model_obj.coef_, index=predictors_used)
+
+            # Top 20 by absolute value, sorted for readability
+            top_features = coef_series.abs().nlargest(20).index
+            plot_data = coef_series[top_features].sort_values()
+
+            colors = ['#d73027' if v < 0 else '#1a9850' for v in plot_data]
+
+            fig, ax = plt.subplots(figsize=(10, 8))
+            ax.barh(plot_data.index, plot_data.values, color=colors)
+            ax.axvline(x=0, color='black', linewidth=0.8, linestyle='--')
+            ax.set_xlabel("Coefficient Value")
+            ax.set_title("Feature Importance - Ridge Regression (Top 20)")
+            ax.grid(True, axis='x', linestyle='--', alpha=0.5)
+            plt.tight_layout()
+            plt.show()
+            logger.info("Feature importance plot generated successfully")
+        else:
+            logger.info(f"Best model is not Ridge — skipping feature importance plot")
+    except Exception as e:
+        logger.warning(f"Error generating feature importance plot: {e}")
 
     logger.info("Pipeline completed successfully!")
     logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C² | RMSE: {rmse:.2f} °C | R²: {r2:.4f} | MAPE: {mape:.2f}%")
