@@ -15,7 +15,7 @@ BACKTEST_STEP = 90     # Step size for sliding window backtest
 NULL_THRESHOLD = 0.05  # Drop columns with >5% null values
 
 # Feature Engineering Parameters
-ROLLING_HORIZONS = [3, 14]  # Days for rolling window features
+ROLLING_HORIZONS = [3, 7, 14]  # Days for rolling window features
 FEATURE_COLUMNS = ["tmax", "tmin", "prcp"]  # Columns to engineer features from
 EXCLUDE_COLUMNS = ["target", "name", "station"]  # Columns to exclude from predictors
 
