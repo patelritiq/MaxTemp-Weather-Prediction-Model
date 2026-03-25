@@ -157,6 +157,8 @@ MaxTemp-Weather-Prediction-Model/
 ├── src/
 │   ├── maxtempweatherpredict.py  # Main prediction script
 │   └── config.py                 # Hyperparameters and settings
+├── notebooks/
+│   └── EDA.ipynb                 # Exploratory Data Analysis notebook
 ├── data/
 │   └── weather.csv               # Historical weather data (19,287 records)
 ├── models/                       # Saved trained models (git-ignored)

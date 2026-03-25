@@ -17,5 +17,6 @@ tqdm>=4.62.0
 
 # Data visualization
 matplotlib>=3.4.0
+seaborn>=0.11.0
 
 # Note: Python 3.x required
