@@ -10,6 +10,8 @@
 
 A **time-series weather prediction model** trained on **19,287 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with data cleaning, feature engineering, multi-model comparison, and backtesting validation.
 
+> **Live Dashboard:** Deploy to [Streamlit Cloud](https://share.streamlit.io) after pushing to GitHub — add your URL here once deployed.
+
 ---
 
 ## Project Overview
@@ -130,21 +132,30 @@ Model performance is reported per-year and per-season to identify where the mode
 
 ### Usage
 
-1. **Navigate to source directory:**
+1. **Train the model** (run from project root):
    ```bash
    cd src
-   ```
-
-2. **Run the prediction model:**
-   ```bash
    python maxtempweatherpredict.py
    ```
+   This trains all 4 models, saves the best one to `models/best_model.pkl`, and generates logs.
 
-3. **Output:**
+2. **Launch the Streamlit dashboard** (run from project root):
+   ```bash
+   streamlit run app.py
+   ```
+   Opens at `http://localhost:8501` in your browser.
+
+3. **Explore the EDA notebook:**
+   ```bash
+   pip install jupyter
+   jupyter notebook notebooks/EDA.ipynb
+   ```
+
+4. **Script output includes:**
    - Ridge alpha tuning table (GridSearchCV results across all alpha values)
    - Model comparison table (MAE, MSE, RMSE, R², MAPE for all models)
-   - Per-year and per-season performance breakdown
-   - Best model logged and saved to `models/best_model.pkl`
+   - Per-season performance breakdown
+   - Best model saved to `models/best_model.pkl`
    - Execution log saved to `model_training.log`
    - Visualizations: Snow depth trends, prediction error distribution, feature importance chart
 
@@ -163,6 +174,7 @@ MaxTemp-Weather-Prediction-Model/
 │   └── weather.csv               # Historical weather data (19,287 records)
 ├── models/                       # Saved trained models (git-ignored)
 │   └── best_model.pkl
+├── app.py                        # Streamlit dashboard
 ├── requirements.txt              # Python dependencies
 ├── LICENSE                       # MIT License
 └── README.md                     # Project documentation
@@ -203,10 +215,10 @@ RETRAIN_MODEL = True                 # Set False to load saved model instead of 
 - Add LSTM / Transformer model for deep learning comparison
 - Season-specific feature engineering to improve winter performance
 - Real-time weather data integration via Open-Meteo API
-- Streamlit dashboard for interactive predictions
 - Multi-day forecasting (3-day, 7-day predictions)
 - Confidence intervals and uncertainty quantification
 - Optuna hyperparameter tuning for Random Forest and XGBoost
+- Deploy Streamlit dashboard to Streamlit Cloud for public access
 
 ---
 
