@@ -256,11 +256,13 @@ def main():
                 train_data["target"],
                 RIDGE_ALPHA_GRID
             )
-            logger.info(f"\n{'='*50}")
-            logger.info("RIDGE ALPHA TUNING RESULTS")
-            logger.info(f"{'='*50}")
-            logger.info(f"\n{alpha_results.to_string(index=False)}\n")
-            logger.info(f"{'='*50}")
+            logger.info(
+                f"\n{'='*50}\n"
+                f"RIDGE ALPHA TUNING RESULTS\n"
+                f"{'='*50}\n"
+                f"{alpha_results.to_string(index=False)}\n"
+                f"{'='*50}"
+            )
             logger.info(f"Best Ridge alpha: {best_alpha}")
         except Exception as e:
             logger.warning(f"GridSearchCV failed, using default alpha={ALPHA}: {e}")
@@ -336,11 +338,13 @@ def main():
         }
         
         comparison_df = pd.DataFrame(comparison_data).T
-        logger.info(f"\n{'='*70}")
-        logger.info("MODEL COMPARISON RESULTS")
-        logger.info(f"{'='*70}")
-        logger.info(f"\n{comparison_df.to_string()}\n")
-        logger.info(f"{'='*70}")
+        logger.info(
+            f"\n{'='*70}\n"
+            f"MODEL COMPARISON RESULTS\n"
+            f"{'='*70}\n"
+            f"{comparison_df.to_string()}\n"
+            f"{'='*70}"
+        )
         
         # Find best model
         best_model_name = min(model_results.keys(), key=lambda x: model_results[x]['MAE'])
@@ -351,12 +355,67 @@ def main():
         best_r2 = best_model_data['R2']
         best_mape = best_model_data['MAPE']
 
-        logger.info(f"\n[BEST MODEL] {best_model_name}")
-        logger.info(f"   MAE:  {best_mae:.2f} °C")
-        logger.info(f"   MSE:  {best_mse:.2f} °C²")
-        logger.info(f"   RMSE: {best_rmse:.2f} °C")
-        logger.info(f"   R²:   {best_r2:.4f}")
-        logger.info(f"   MAPE: {best_mape:.2f}%\n")
+        logger.info(
+            f"\n{'='*70}\n"
+            f"[BEST MODEL] {best_model_name}\n"
+            f"   MAE:  {best_mae:.2f} °C\n"
+            f"   MSE:  {best_mse:.2f} °C²\n"
+            f"   RMSE: {best_rmse:.2f} °C\n"
+            f"   R²:   {best_r2:.4f}\n"
+            f"   MAPE: {best_mape:.2f}%\n"
+            f"{'='*70}"
+        )
+
+        # --- Per-Year Performance Breakdown ---
+        try:
+            best_predictions = best_model_data['predictions'].copy()
+            best_predictions['year'] = best_predictions.index.year
+
+            yearly = best_predictions.groupby('year').apply(
+                lambda g: pd.Series({
+                    'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
+                    'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
+                    'R²': round(r2_score(g['actual'], g['prediction']), 4)
+                })
+            )
+            logger.info(
+                f"\n{'='*50}\n"
+                f"PERFORMANCE BY YEAR\n"
+                f"{'='*50}\n"
+                f"{yearly.to_string()}\n"
+                f"{'='*50}"
+            )
+        except Exception as e:
+            logger.warning(f"Error generating yearly breakdown: {e}")
+
+        # --- Per-Season Performance Breakdown ---
+        try:
+            def get_season(month):
+                if month in [12, 1, 2]:   return 'Winter'
+                elif month in [3, 4, 5]:  return 'Spring'
+                elif month in [6, 7, 8]:  return 'Summer'
+                else:                     return 'Fall'
+
+            best_predictions['season'] = best_predictions.index.month.map(get_season)
+            season_order = ['Winter', 'Spring', 'Summer', 'Fall']
+
+            seasonal = best_predictions.groupby('season').apply(
+                lambda g: pd.Series({
+                    'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
+                    'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
+                    'R²': round(r2_score(g['actual'], g['prediction']), 4)
+                })
+            ).reindex(season_order)
+
+            logger.info(
+                f"\n{'='*50}\n"
+                f"PERFORMANCE BY SEASON\n"
+                f"{'='*50}\n"
+                f"{seasonal.to_string()}\n"
+                f"{'='*50}"
+            )
+        except Exception as e:
+            logger.warning(f"Error generating seasonal breakdown: {e}")
         
         # Save best model
         try:
