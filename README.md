@@ -24,7 +24,7 @@ This project develops a machine learning model to predict maximum daily temperat
 - **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit for Ridge alpha optimization
 - **Feature Engineering**: Rolling averages (3-day, 7-day, 14-day), lag features (1, 3, 7-day), year trend, and temporal aggregates
 - **Backtesting Validation**: 10-year training window with 90-day evaluation steps
-- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C, R² of 0.8747, MAPE of 8.90%
+- **Best Model Performance**: MAE of 4.77°C, MSE of 37.26°C², RMSE of 6.10°C, R² of 0.8759, MAPE of 8.88%
 - **Structured Logging**: Full execution logs saved to `model_training.log`
 - **Model Persistence**: Best model saved and reusable without retraining
 
@@ -88,10 +88,10 @@ All models are evaluated on five metrics:
 ### Model Comparison Results
 | Model         | MAE (°C) | MSE (°C²) | RMSE (°C) | R²     | MAPE (%) |
 |---------------|----------|-----------|-----------|--------|----------|
-| Ridge         | 4.79     | 37.62     | 6.13      | 0.8747 | 8.90     |
-| Random Forest | 5.00     | 41.39     | 6.43      | 0.8621 | 9.25     |
-| XGBoost       | 4.81     | 38.08     | 6.17      | 0.8732 | 8.94     |
-| LightGBM      | 6.89     | 71.10     | 8.43      | 0.7631 | 13.19    |
+| Ridge         | 4.77     | 37.26     | 6.10      | 0.8759 | 8.88     |
+| Random Forest | 5.02     | 41.44     | 6.44      | 0.8620 | 9.32     |
+| XGBoost       | 4.84     | 38.50     | 6.21      | 0.8717 | 9.03     |
+| LightGBM      | 6.89     | 71.07     | 8.43      | 0.7632 | 13.18    |
 
 ### Performance Breakdown
 Model performance is reported per-year and per-season to identify where the model is strong or weak:

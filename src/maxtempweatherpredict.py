@@ -203,7 +203,7 @@ def main():
         return
 
     # --- Feature Engineering: Rolling Windows ---
-    logger.info("Engineering rolling window features (3-day and 14-day horizons)...")
+    logger.info("Engineering rolling window features (3-day, 7-day and 14-day horizons)...")
     try:
         for horizon in ROLLING_HORIZONS:
             for col in FEATURE_COLUMNS:
@@ -410,7 +410,7 @@ def main():
                         'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
                         'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
                         'R²': round(r2_score(g['actual'], g['prediction']), 4)
-                    })
+                    }), include_groups=False
                 )
                 logger.debug(
                     f"\n{'='*50}\n"
@@ -436,7 +436,7 @@ def main():
                         'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
                         'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
                         'R²': round(r2_score(g['actual'], g['prediction']), 4)
-                    })
+                    }), include_groups=False
                 ).reindex(['Winter', 'Spring', 'Summer', 'Fall'])
                 logger.info(
                     f"\n{'='*50}\n"
