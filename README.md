@@ -8,7 +8,7 @@
 [![matplotlib](https://img.shields.io/badge/matplotlib-Visualization-11557c.svg)](https://matplotlib.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A **time-series weather prediction model** trained on **19,288 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with data cleaning, feature engineering, multi-model comparison, and backtesting validation.
+A **time-series weather prediction model** trained on **19,287 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with data cleaning, feature engineering, multi-model comparison, and backtesting validation.
 
 ---
 
@@ -22,7 +22,7 @@ This project develops a machine learning model to predict maximum daily temperat
 - **19,287 Historical Records**: Weather dataset spanning 1970 to 2022 (52 years)
 - **Multi-Model Comparison**: Ridge Regression, Random Forest, XGBoost, LightGBM
 - **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit for Ridge alpha optimization
-- **Feature Engineering**: Rolling averages (3-day, 7-day, 14-day) and temporal aggregates (monthly, daily)
+- **Feature Engineering**: Rolling averages (3-day, 7-day, 14-day), lag features (1, 3, 7-day), year trend, and temporal aggregates
 - **Backtesting Validation**: 10-year training window with 90-day evaluation steps
 - **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C, R² of 0.8747, MAPE of 8.90%
 - **Structured Logging**: Full execution logs saved to `model_training.log`
@@ -69,6 +69,11 @@ This project develops a machine learning model to predict maximum daily temperat
   - 7-day: captures weekly weather cycle patterns
   - 14-day: captures medium-term temperature trends
 - **Percentage Differences**: Relative change between today's value and each rolling average
+- **Lag Features**: Exact tmax values from 1, 3, and 7 days ago
+  - `tmax_lag_1`: yesterday's temperature (strongest single predictor)
+  - `tmax_lag_3`: 3 days ago (captures ongoing weather system)
+  - `tmax_lag_7`: 7 days ago (captures weekly cycle)
+- **Year Feature**: Numeric year (1970–2022) to capture long-term climate warming trend
 - **Temporal Aggregates**: Expanding monthly and daily averages
 - **Data Cleaning**: Null value handling (<5% threshold), forward-fill imputation
 
@@ -153,7 +158,7 @@ MaxTemp-Weather-Prediction-Model/
 │   ├── maxtempweatherpredict.py  # Main prediction script
 │   └── config.py                 # Hyperparameters and settings
 ├── data/
-│   └── weather.csv               # Historical weather data (19,288 records)
+│   └── weather.csv               # Historical weather data (19,287 records)
 ├── models/                       # Saved trained models (git-ignored)
 │   └── best_model.pkl
 ├── requirements.txt              # Python dependencies
@@ -182,6 +187,7 @@ BACKTEST_STEP = 90                   # 90-day evaluation windows
 
 # Feature Engineering
 ROLLING_HORIZONS = [3, 7, 14]       # Short, weekly, and medium-term patterns
+LAG_DAYS = [1, 3, 7]                # Lag days for exact historical tmax values
 NULL_THRESHOLD = 0.05                # Drop columns with >5% null values
 
 # Model Persistence
