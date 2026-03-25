@@ -21,10 +21,12 @@ This project develops a machine learning model to predict maximum daily temperat
 ### Key Statistics
 - **19,288 Historical Records**: Multi-decade weather dataset spanning 50+ years
 - **Multi-Model Comparison**: Ridge Regression, Random Forest, XGBoost, LightGBM
-- **Feature Engineering**: Rolling averages (3-day, 14-day) and temporal aggregates (monthly, daily)
+- **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit for Ridge alpha optimization
+- **Feature Engineering**: Rolling averages (3-day, 7-day, 14-day) and temporal aggregates (monthly, daily)
 - **Backtesting Validation**: 10-year training window with 90-day evaluation steps
-- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C
+- **Best Model Performance**: MAE of 4.79°C, MSE of 37.62°C², RMSE of 6.13°C, R² of 0.87
 - **Structured Logging**: Full execution logs saved to `model_training.log`
+- **Model Persistence**: Best model saved and reusable without retraining
 
 ---
 
@@ -54,25 +56,42 @@ This project develops a machine learning model to predict maximum daily temperat
 
 ### Model Architecture
 - **Algorithms Compared**: Ridge Regression, Random Forest, XGBoost, LightGBM
-- **Best Model**: Automatically selected based on lowest MAE
+- **Hyperparameter Tuning**: GridSearchCV with TimeSeriesSplit (5 folds) for Ridge alpha — searches `[0.001, 0.01, 0.1, 1.0, 10.0, 100.0]`
+- **Best Model**: Automatically selected based on lowest MAE, saved to disk
 - **Training Data**: 19,288 historical weather records
 - **Validation Strategy**: Backtesting with 10-year initial training, 90-day evaluation steps
 - **Target Variable**: Maximum daily temperature (TMAX)
-- **Model Persistence**: Best model saved to `models/best_model.pkl`
+- **Model Persistence**: Best model saved to `models/best_model.pkl`, reloadable via `RETRAIN_MODEL = False` in config
 
 ### Feature Engineering
-- **Rolling Averages**: 3-day and 14-day windows for TMAX, TMIN, PRCP
-- **Percentage Differences**: Relative changes from rolling averages
+- **Rolling Averages**: 3-day, 7-day, and 14-day windows for TMAX, TMIN, PRCP
+  - 3-day: captures short-term momentum
+  - 7-day: captures weekly weather cycle patterns
+  - 14-day: captures medium-term temperature trends
+- **Percentage Differences**: Relative change between today's value and each rolling average
 - **Temporal Aggregates**: Expanding monthly and daily averages
 - **Data Cleaning**: Null value handling (<5% threshold), forward-fill imputation
 
+### Evaluation Metrics
+All models are evaluated on five metrics:
+- **MAE** — Average error in °C
+- **MSE** — Penalizes large errors more heavily
+- **RMSE** — MAE in °C scale, sensitive to outliers
+- **R²** — How much temperature variation the model explains (1.0 = perfect)
+- **MAPE** — Error as a percentage (handles scale differences across seasons)
+
 ### Model Comparison Results
-| Model         | MAE (°C) | MSE (°C²) | RMSE (°C) |
-|---------------|----------|-----------|-----------|
-| Ridge         | 4.79     | 37.62     | 6.13      |
-| Random Forest | 5.02     | 41.53     | 6.44      |
-| XGBoost       | 4.80     | 37.81     | 6.15      |
-| LightGBM      | 6.89     | 71.06     | 8.43      |
+| Model         | MAE (°C) | MSE (°C²) | RMSE (°C) | R²   | MAPE (%) |
+|---------------|----------|-----------|-----------|------|----------|
+| Ridge         | 4.79     | 37.62     | 6.13      | 0.87 | 8.92     |
+| Random Forest | 5.02     | 41.53     | 6.44      | 0.80 | 15.10    |
+| XGBoost       | 4.80     | 37.81     | 6.15      | 0.81 | 14.40    |
+| LightGBM      | 6.89     | 71.06     | 8.43      | 0.71 | 20.20    |
+
+### Performance Breakdown
+Model performance is reported per-year and per-season to identify where the model is strong or weak:
+- **Per-year**: Tracks MAE, RMSE, R² for each year in the dataset
+- **Per-season**: Winter / Spring / Summer / Fall breakdown
 
 ### Reusable Analytics Pipeline
 - `backtest()`: Time-series cross-validation function
@@ -80,6 +99,8 @@ This project develops a machine learning model to predict maximum daily temperat
 - `expand_mean()`: Temporal aggregate computation
 - `pct_diff()`: Percentage difference calculation
 - `calculate_rmse()`: RMSE metric computation
+- `calculate_mape()`: MAPE metric with zero-division handling
+- `tune_ridge_alpha()`: GridSearchCV with TimeSeriesSplit for alpha tuning
 
 ---
 
@@ -115,10 +136,12 @@ This project develops a machine learning model to predict maximum daily temperat
    ```
 
 3. **Output:**
-   - Model comparison table (MAE, MSE, RMSE for all models)
+   - Ridge alpha tuning table (GridSearchCV results across all alpha values)
+   - Model comparison table (MAE, MSE, RMSE, R², MAPE for all models)
+   - Per-year and per-season performance breakdown
    - Best model logged and saved to `models/best_model.pkl`
    - Execution log saved to `model_training.log`
-   - Visualizations: Snow depth trends, prediction error distribution
+   - Visualizations: Snow depth trends, prediction error distribution, feature importance chart
 
 ---
 
@@ -146,18 +169,23 @@ All hyperparameters are centralized in `src/config.py`:
 
 ```python
 # Model Parameters
-ALPHA = 0.1                    # Ridge regularization strength
+ALPHA = 0.1                          # Ridge fallback alpha
+RIDGE_ALPHA_GRID = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]  # GridSearchCV candidates
 RANDOM_FOREST_N_ESTIMATORS = 10
 XGBOOST_N_ESTIMATORS = 10
 LIGHTGBM_N_ESTIMATORS = 10
+RANDOM_STATE = 42                    # For reproducibility
 
 # Backtest Configuration
-BACKTEST_START = 3650          # 10-year initial training period
-BACKTEST_STEP = 90             # 90-day evaluation windows
+BACKTEST_START = 3650                # 10-year initial training period
+BACKTEST_STEP = 90                   # 90-day evaluation windows
 
 # Feature Engineering
-ROLLING_HORIZONS = [3, 14]    # Short-term and medium-term patterns
-NULL_THRESHOLD = 0.05          # Drop columns with >5% null values
+ROLLING_HORIZONS = [3, 7, 14]       # Short, weekly, and medium-term patterns
+NULL_THRESHOLD = 0.05                # Drop columns with >5% null values
+
+# Model Persistence
+RETRAIN_MODEL = True                 # Set False to load saved model instead of retraining
 ```
 
 ---
@@ -165,11 +193,12 @@ NULL_THRESHOLD = 0.05          # Drop columns with >5% null values
 ## Future Enhancements
 
 - Add LSTM / Transformer model for deep learning comparison
-- Hyperparameter tuning with GridSearchCV or Optuna
+- Season-specific feature engineering to improve winter performance
 - Real-time weather data integration via Open-Meteo API
 - Streamlit dashboard for interactive predictions
 - Multi-day forecasting (3-day, 7-day predictions)
 - Confidence intervals and uncertainty quantification
+- Optuna hyperparameter tuning for Random Forest and XGBoost
 
 ---
 
