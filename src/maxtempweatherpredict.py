@@ -20,7 +20,7 @@ from config import (
     ALPHA, RIDGE_ALPHA_GRID, BACKTEST_START, BACKTEST_STEP, NULL_THRESHOLD,
     ROLLING_HORIZONS, FEATURE_COLUMNS, EXCLUDE_COLUMNS, ROLLING_WINDOW_OFFSET,
     RANDOM_FOREST_N_ESTIMATORS, XGBOOST_N_ESTIMATORS, LIGHTGBM_N_ESTIMATORS,
-    RANDOM_STATE, MODELS_DIR, BEST_MODEL_FILENAME
+    RANDOM_STATE, MODELS_DIR, BEST_MODEL_FILENAME, RETRAIN_MODEL
 )
 
 # Configure logging
@@ -237,209 +237,219 @@ def main():
         return
 
     # --- Final Model & Evaluation with Model Comparison ---
-    logger.info("Training and comparing multiple models with engineered features...")
-    try:
-        weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
-        weather = weather.fillna(0)
-        predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
-        
-        if len(predictors) == 0:
-            logger.error("No valid predictors found for model comparison")
+    model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
+
+    if not RETRAIN_MODEL and os.path.exists(model_path):
+        # --- Load saved model ---
+        logger.info(f"Loading saved model from {model_path} (RETRAIN_MODEL=False)...")
+        try:
+            weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
+            weather = weather.fillna(0)
+            predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
+
+            best_model = joblib.load(model_path)
+            preds = best_model.predict(weather[predictors])
+            preds = pd.Series(preds, index=weather.index)
+            predictions = pd.concat([weather["target"], preds], axis=1)
+            predictions.columns = ["actual", "prediction"]
+            predictions["diff"] = (predictions["prediction"] - predictions["actual"]).abs()
+
+            mae  = mean_absolute_error(predictions["actual"], predictions["prediction"])
+            mse  = mean_squared_error(predictions["actual"], predictions["prediction"])
+            rmse = calculate_rmse(predictions["actual"], predictions["prediction"])
+            r2   = r2_score(predictions["actual"], predictions["prediction"])
+            mape = calculate_mape(predictions["actual"], predictions["prediction"])
+
+            logger.info(f"Loaded model results - MAE: {mae:.2f} °C | RMSE: {rmse:.2f} °C | R²: {r2:.4f}")
+        except Exception as e:
+            logger.error(f"Error loading saved model: {e}")
             return
-
-        # Tune Ridge alpha using GridSearchCV
-        logger.info("Tuning Ridge alpha with GridSearchCV...")
+    else:
+        logger.info("Training and comparing multiple models with engineered features...")
         try:
-            train_data = weather.iloc[:BACKTEST_START]
-            best_alpha, alpha_results = tune_ridge_alpha(
-                train_data[predictors],
-                train_data["target"],
-                RIDGE_ALPHA_GRID
-            )
-            logger.info(
-                f"\n{'='*50}\n"
-                f"RIDGE ALPHA TUNING RESULTS\n"
-                f"{'='*50}\n"
-                f"{alpha_results.to_string(index=False)}\n"
-                f"{'='*50}"
-            )
-            logger.info(f"Best Ridge alpha: {best_alpha}")
-        except Exception as e:
-            logger.warning(f"GridSearchCV failed, using default alpha={ALPHA}: {e}")
-            best_alpha = ALPHA
-
-        # Define models to compare
-        models = {
-            'Ridge': Ridge(alpha=best_alpha),
-            'Random Forest': RandomForestRegressor(
-                n_estimators=RANDOM_FOREST_N_ESTIMATORS,
-                random_state=RANDOM_STATE,
-                n_jobs=-1
-            ),
-            'XGBoost': XGBRegressor(
-                n_estimators=XGBOOST_N_ESTIMATORS,
-                random_state=RANDOM_STATE,
-                verbosity=0
-            ),
-            'LightGBM': LGBMRegressor(
-                n_estimators=LIGHTGBM_N_ESTIMATORS,
-                random_state=RANDOM_STATE,
-                verbose=-1
-            )
-        }
-        
-        logger.info(f"Training {len(models)} models for comparison...")
-        model_results = {}
-        
-        for model_name, model in tqdm(models.items(), desc="Training models", unit="model"):
-            logger.info(f"Training {model_name}...")
-            try:
-                predictions = backtest(weather, model, predictors)
-                
-                if predictions.empty:
-                    logger.warning(f"No predictions from {model_name}, skipping")
-                    continue
-                
-                mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
-                mse = mean_squared_error(predictions["actual"], predictions["prediction"])
-                rmse = calculate_rmse(predictions["actual"], predictions["prediction"])
-                r2 = r2_score(predictions["actual"], predictions["prediction"])
-                mape = calculate_mape(predictions["actual"], predictions["prediction"])
-                
-                model_results[model_name] = {
-                    'MAE': mae,
-                    'MSE': mse,
-                    'RMSE': rmse,
-                    'R2': r2,
-                    'MAPE': mape,
-                    'model': model,
-                    'predictions': predictions
-                }
-                
-                logger.info(f"{model_name} - MAE: {mae:.2f} °C, RMSE: {rmse:.2f} °C, R²: {r2:.4f}, MAPE: {mape:.2f}%")
-            except Exception as e:
-                logger.warning(f"Error training {model_name}: {e}")
-                continue
-        
-        if not model_results:
-            logger.error("No models trained successfully")
-            return
-        
-        # Create comparison table
-        comparison_data = {
-            model_name: {
-                'MAE (°C)': f"{results['MAE']:.2f}",
-                'MSE (°C²)': f"{results['MSE']:.2f}",
-                'RMSE (°C)': f"{results['RMSE']:.2f}",
-                'R²': f"{results['R2']:.4f}",
-                'MAPE (%)': f"{results['MAPE']:.2f}"
-            }
-            for model_name, results in model_results.items()
-        }
-        
-        comparison_df = pd.DataFrame(comparison_data).T
-        logger.info(
-            f"\n{'='*70}\n"
-            f"MODEL COMPARISON RESULTS\n"
-            f"{'='*70}\n"
-            f"{comparison_df.to_string()}\n"
-            f"{'='*70}"
-        )
-        
-        # Find best model
-        best_model_name = min(model_results.keys(), key=lambda x: model_results[x]['MAE'])
-        best_model_data = model_results[best_model_name]
-        best_mae = best_model_data['MAE']
-        best_rmse = best_model_data['RMSE']
-        best_mse = best_model_data['MSE']
-        best_r2 = best_model_data['R2']
-        best_mape = best_model_data['MAPE']
-
-        logger.info(
-            f"\n{'='*70}\n"
-            f"[BEST MODEL] {best_model_name}\n"
-            f"   MAE:  {best_mae:.2f} °C\n"
-            f"   MSE:  {best_mse:.2f} °C²\n"
-            f"   RMSE: {best_rmse:.2f} °C\n"
-            f"   R²:   {best_r2:.4f}\n"
-            f"   MAPE: {best_mape:.2f}%\n"
-            f"{'='*70}"
-        )
-
-        # --- Per-Year Performance Breakdown ---
-        try:
-            best_predictions = best_model_data['predictions'].copy()
-            best_predictions['year'] = best_predictions.index.year
-
-            yearly = best_predictions.groupby('year').apply(
-                lambda g: pd.Series({
-                    'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
-                    'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
-                    'R²': round(r2_score(g['actual'], g['prediction']), 4)
-                })
-            )
-            logger.info(
-                f"\n{'='*50}\n"
-                f"PERFORMANCE BY YEAR\n"
-                f"{'='*50}\n"
-                f"{yearly.to_string()}\n"
-                f"{'='*50}"
-            )
-        except Exception as e:
-            logger.warning(f"Error generating yearly breakdown: {e}")
-
-        # --- Per-Season Performance Breakdown ---
-        try:
-            def get_season(month):
-                if month in [12, 1, 2]:   return 'Winter'
-                elif month in [3, 4, 5]:  return 'Spring'
-                elif month in [6, 7, 8]:  return 'Summer'
-                else:                     return 'Fall'
-
-            best_predictions['season'] = best_predictions.index.month.map(get_season)
-            season_order = ['Winter', 'Spring', 'Summer', 'Fall']
-
-            seasonal = best_predictions.groupby('season').apply(
-                lambda g: pd.Series({
-                    'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
-                    'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
-                    'R²': round(r2_score(g['actual'], g['prediction']), 4)
-                })
-            ).reindex(season_order)
-
-            logger.info(
-                f"\n{'='*50}\n"
-                f"PERFORMANCE BY SEASON\n"
-                f"{'='*50}\n"
-                f"{seasonal.to_string()}\n"
-                f"{'='*50}"
-            )
-        except Exception as e:
-            logger.warning(f"Error generating seasonal breakdown: {e}")
-        
-        # Save best model
-        try:
-            if not os.path.exists(MODELS_DIR):
-                os.makedirs(MODELS_DIR)
-                logger.info(f"Created models directory: {MODELS_DIR}")
+            weather = weather.iloc[ROLLING_WINDOW_OFFSET:, :]
+            weather = weather.fillna(0)
+            predictors = weather.columns[~weather.columns.isin(EXCLUDE_COLUMNS)]
             
-            model_path = os.path.join(MODELS_DIR, BEST_MODEL_FILENAME)
-            joblib.dump(best_model_data['model'], model_path)
-            logger.info(f"[SAVED] Best model saved to: {model_path}")
+            if len(predictors) == 0:
+                logger.error("No valid predictors found for model comparison")
+                return
+
+            # Tune Ridge alpha using GridSearchCV
+            logger.info("Tuning Ridge alpha with GridSearchCV...")
+            try:
+                train_data = weather.iloc[:BACKTEST_START]
+                best_alpha, alpha_results = tune_ridge_alpha(
+                    train_data[predictors],
+                    train_data["target"],
+                    RIDGE_ALPHA_GRID
+                )
+                logger.info(
+                    f"\n{'='*50}\n"
+                    f"RIDGE ALPHA TUNING RESULTS\n"
+                    f"{'='*50}\n"
+                    f"{alpha_results.to_string(index=False)}\n"
+                    f"{'='*50}"
+                )
+                logger.info(f"Best Ridge alpha: {best_alpha}")
+            except Exception as e:
+                logger.warning(f"GridSearchCV failed, using default alpha={ALPHA}: {e}")
+                best_alpha = ALPHA
+
+            # Define models to compare
+            models = {
+                'Ridge': Ridge(alpha=best_alpha),
+                'Random Forest': RandomForestRegressor(
+                    n_estimators=RANDOM_FOREST_N_ESTIMATORS,
+                    random_state=RANDOM_STATE,
+                    n_jobs=-1
+                ),
+                'XGBoost': XGBRegressor(
+                    n_estimators=XGBOOST_N_ESTIMATORS,
+                    random_state=RANDOM_STATE,
+                    verbosity=0
+                ),
+                'LightGBM': LGBMRegressor(
+                    n_estimators=LIGHTGBM_N_ESTIMATORS,
+                    random_state=RANDOM_STATE,
+                    verbose=-1
+                )
+            }
+
+            logger.info(f"Training {len(models)} models for comparison...")
+            model_results = {}
+
+            for model_name, model in tqdm(models.items(), desc="Training models", unit="model"):
+                logger.info(f"Training {model_name}...")
+                try:
+                    preds = backtest(weather, model, predictors)
+
+                    if preds.empty:
+                        logger.warning(f"No predictions from {model_name}, skipping")
+                        continue
+
+                    mae  = mean_absolute_error(preds["actual"], preds["prediction"])
+                    mse  = mean_squared_error(preds["actual"], preds["prediction"])
+                    rmse = calculate_rmse(preds["actual"], preds["prediction"])
+                    r2   = r2_score(preds["actual"], preds["prediction"])
+                    mape = calculate_mape(preds["actual"], preds["prediction"])
+
+                    model_results[model_name] = {
+                        'MAE': mae, 'MSE': mse, 'RMSE': rmse,
+                        'R2': r2, 'MAPE': mape,
+                        'model': model, 'predictions': preds
+                    }
+
+                    logger.info(f"{model_name} - MAE: {mae:.2f} °C, RMSE: {rmse:.2f} °C, R²: {r2:.4f}, MAPE: {mape:.2f}%")
+                except Exception as e:
+                    logger.warning(f"Error training {model_name}: {e}")
+                    continue
+
+            if not model_results:
+                logger.error("No models trained successfully")
+                return
+
+            # Comparison table
+            comparison_data = {
+                name: {
+                    'MAE (°C)': f"{r['MAE']:.2f}", 'MSE (°C²)': f"{r['MSE']:.2f}",
+                    'RMSE (°C)': f"{r['RMSE']:.2f}", 'R²': f"{r['R2']:.4f}",
+                    'MAPE (%)': f"{r['MAPE']:.2f}"
+                }
+                for name, r in model_results.items()
+            }
+            comparison_df = pd.DataFrame(comparison_data).T
+            logger.info(
+                f"\n{'='*70}\n"
+                f"MODEL COMPARISON RESULTS\n"
+                f"{'='*70}\n"
+                f"{comparison_df.to_string()}\n"
+                f"{'='*70}"
+            )
+
+            # Find best model
+            best_model_name = min(model_results.keys(), key=lambda x: model_results[x]['MAE'])
+            best_model_data = model_results[best_model_name]
+
+            logger.info(
+                f"\n{'='*70}\n"
+                f"[BEST MODEL] {best_model_name}\n"
+                f"   MAE:  {best_model_data['MAE']:.2f} °C\n"
+                f"   MSE:  {best_model_data['MSE']:.2f} °C²\n"
+                f"   RMSE: {best_model_data['RMSE']:.2f} °C\n"
+                f"   R²:   {best_model_data['R2']:.4f}\n"
+                f"   MAPE: {best_model_data['MAPE']:.2f}%\n"
+                f"{'='*70}"
+            )
+
+            # Per-year breakdown
+            try:
+                bp = best_model_data['predictions'].copy()
+                bp['year'] = bp.index.year
+                yearly = bp.groupby('year').apply(
+                    lambda g: pd.Series({
+                        'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
+                        'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
+                        'R²': round(r2_score(g['actual'], g['prediction']), 4)
+                    })
+                )
+                logger.info(
+                    f"\n{'='*50}\n"
+                    f"PERFORMANCE BY YEAR\n"
+                    f"{'='*50}\n"
+                    f"{yearly.to_string()}\n"
+                    f"{'='*50}"
+                )
+            except Exception as e:
+                logger.warning(f"Error generating yearly breakdown: {e}")
+
+            # Per-season breakdown
+            try:
+                def get_season(month):
+                    if month in [12, 1, 2]:  return 'Winter'
+                    elif month in [3, 4, 5]: return 'Spring'
+                    elif month in [6, 7, 8]: return 'Summer'
+                    else:                    return 'Fall'
+
+                bp['season'] = bp.index.month.map(get_season)
+                seasonal = bp.groupby('season').apply(
+                    lambda g: pd.Series({
+                        'MAE (°C)': round(mean_absolute_error(g['actual'], g['prediction']), 2),
+                        'RMSE (°C)': round(calculate_rmse(g['actual'], g['prediction']), 2),
+                        'R²': round(r2_score(g['actual'], g['prediction']), 4)
+                    })
+                ).reindex(['Winter', 'Spring', 'Summer', 'Fall'])
+                logger.info(
+                    f"\n{'='*50}\n"
+                    f"PERFORMANCE BY SEASON\n"
+                    f"{'='*50}\n"
+                    f"{seasonal.to_string()}\n"
+                    f"{'='*50}"
+                )
+            except Exception as e:
+                logger.warning(f"Error generating seasonal breakdown: {e}")
+
+            # Save best model
+            try:
+                if not os.path.exists(MODELS_DIR):
+                    os.makedirs(MODELS_DIR)
+                    logger.info(f"Created models directory: {MODELS_DIR}")
+                joblib.dump(best_model_data['model'], model_path)
+                logger.info(f"[SAVED] Best model saved to: {model_path}")
+            except Exception as e:
+                logger.warning(f"Error saving best model: {e}")
+
+            # Set final result variables
+            predictions = best_model_data['predictions']
+            mae  = best_model_data['MAE']
+            mse  = best_model_data['MSE']
+            rmse = best_model_data['RMSE']
+            r2   = best_model_data['R2']
+            mape = best_model_data['MAPE']
+
         except Exception as e:
-            logger.warning(f"Error saving best model: {e}")
-        
-        # Use best model for final results
-        predictions = best_model_data['predictions']
-        mae = best_model_data['MAE']
-        mse = best_model_data['MSE']
-        rmse = best_model_data['RMSE']
-        r2 = best_model_data['R2']
-        mape = best_model_data['MAPE']
-        
-    except Exception as e:
-        logger.error(f"Error during model comparison: {e}")
-        return
+            logger.error(f"Error during model comparison: {e}")
+            return
 
     # --- Plot: Error Distribution ---
     logger.info("Generating error distribution plot...")

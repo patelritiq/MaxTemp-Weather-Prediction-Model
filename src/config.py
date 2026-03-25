@@ -31,3 +31,4 @@ RANDOM_STATE = 42  # For reproducibility
 # Model Saving
 MODELS_DIR = "models"  # Directory to save trained models
 BEST_MODEL_FILENAME = "best_model.pkl"  # Filename for best model
+RETRAIN_MODEL = True  # Set to False to load saved model instead of retraining
