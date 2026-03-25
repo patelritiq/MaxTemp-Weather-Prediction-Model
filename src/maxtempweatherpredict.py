@@ -13,7 +13,7 @@ from tqdm import tqdm
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from config import (
@@ -64,6 +64,16 @@ def expand_mean(df):
 def calculate_rmse(actual, predicted):
     """Calculate Root Mean Squared Error"""
     return np.sqrt(mean_squared_error(actual, predicted))
+
+
+def calculate_mape(actual, predicted):
+    """Calculate Mean Absolute Percentage Error.
+    Handles division by zero by excluding rows where actual temp is 0.
+    """
+    mask = actual != 0
+    if mask.sum() == 0:
+        return float('nan')
+    return (((actual[mask] - predicted[mask]).abs() / actual[mask].abs()) * 100).mean()
 
 
 def tune_ridge_alpha(X_train, y_train, alpha_grid):
@@ -291,16 +301,20 @@ def main():
                 mae = mean_absolute_error(predictions["actual"], predictions["prediction"])
                 mse = mean_squared_error(predictions["actual"], predictions["prediction"])
                 rmse = calculate_rmse(predictions["actual"], predictions["prediction"])
+                r2 = r2_score(predictions["actual"], predictions["prediction"])
+                mape = calculate_mape(predictions["actual"], predictions["prediction"])
                 
                 model_results[model_name] = {
                     'MAE': mae,
                     'MSE': mse,
                     'RMSE': rmse,
+                    'R2': r2,
+                    'MAPE': mape,
                     'model': model,
                     'predictions': predictions
                 }
                 
-                logger.info(f"{model_name} - MAE: {mae:.2f} °C, RMSE: {rmse:.2f} °C")
+                logger.info(f"{model_name} - MAE: {mae:.2f} °C, RMSE: {rmse:.2f} °C, R²: {r2:.4f}, MAPE: {mape:.2f}%")
             except Exception as e:
                 logger.warning(f"Error training {model_name}: {e}")
                 continue
@@ -314,7 +328,9 @@ def main():
             model_name: {
                 'MAE (°C)': f"{results['MAE']:.2f}",
                 'MSE (°C²)': f"{results['MSE']:.2f}",
-                'RMSE (°C)': f"{results['RMSE']:.2f}"
+                'RMSE (°C)': f"{results['RMSE']:.2f}",
+                'R²': f"{results['R2']:.4f}",
+                'MAPE (%)': f"{results['MAPE']:.2f}"
             }
             for model_name, results in model_results.items()
         }
@@ -332,11 +348,15 @@ def main():
         best_mae = best_model_data['MAE']
         best_rmse = best_model_data['RMSE']
         best_mse = best_model_data['MSE']
-        
+        best_r2 = best_model_data['R2']
+        best_mape = best_model_data['MAPE']
+
         logger.info(f"\n[BEST MODEL] {best_model_name}")
-        logger.info(f"   MAE: {best_mae:.2f} °C")
-        logger.info(f"   MSE: {best_mse:.2f} °C²")
-        logger.info(f"   RMSE: {best_rmse:.2f} °C\n")
+        logger.info(f"   MAE:  {best_mae:.2f} °C")
+        logger.info(f"   MSE:  {best_mse:.2f} °C²")
+        logger.info(f"   RMSE: {best_rmse:.2f} °C")
+        logger.info(f"   R²:   {best_r2:.4f}")
+        logger.info(f"   MAPE: {best_mape:.2f}%\n")
         
         # Save best model
         try:
@@ -355,6 +375,8 @@ def main():
         mae = best_model_data['MAE']
         mse = best_model_data['MSE']
         rmse = best_model_data['RMSE']
+        r2 = best_model_data['R2']
+        mape = best_model_data['MAPE']
         
     except Exception as e:
         logger.error(f"Error during model comparison: {e}")
@@ -378,7 +400,7 @@ def main():
         # Continue execution even if plotting fails
 
     logger.info("Pipeline completed successfully!")
-    logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C² | RMSE: {rmse:.2f} °C")
+    logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C² | RMSE: {rmse:.2f} °C | R²: {r2:.4f} | MAPE: {mape:.2f}%")
 
 
 if __name__ == "__main__":
