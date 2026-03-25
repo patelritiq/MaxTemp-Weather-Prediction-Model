@@ -6,11 +6,12 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-Gradient%20Boosting-red.svg)](https://xgboost.readthedocs.io/)
 [![LightGBM](https://img.shields.io/badge/LightGBM-Fast%20Boosting-brightgreen.svg)](https://lightgbm.readthedocs.io/)
 [![matplotlib](https://img.shields.io/badge/matplotlib-Visualization-11557c.svg)](https://matplotlib.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg)](https://patelritiq-maxtemp-weather-prediction.streamlit.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A **time-series weather prediction model** trained on **19,287 historical weather records** to forecast maximum daily temperatures. Implements a complete analytics pipeline with data cleaning, feature engineering, multi-model comparison, and backtesting validation.
 
-> **Live Dashboard:** Deploy to [Streamlit Cloud](https://share.streamlit.io) after pushing to GitHub — add your URL here once deployed.
+> **Live Dashboard:** [patelritiq-maxtemp-weather-prediction.streamlit.app](https://patelritiq-maxtemp-weather-prediction.streamlit.app)
 
 ---
 
