@@ -219,7 +219,6 @@ RETRAIN_MODEL = True                 # Set False to load saved model instead of 
 - Multi-day forecasting (3-day, 7-day predictions)
 - Confidence intervals and uncertainty quantification
 - Optuna hyperparameter tuning for Random Forest and XGBoost
-- Deploy Streamlit dashboard to Streamlit Cloud for public access
 
 ---
 
@@ -259,7 +258,8 @@ Data Science & Machine Learning
 
 - **Zidio Development**: For project guidance and dataset provision
 - **scikit-learn, XGBoost, LightGBM**: For robust machine learning tools
-- **pandas & matplotlib**: For data manipulation and visualization
+- **pandas, matplotlib, seaborn**: For data manipulation and visualization
+- **Streamlit**: For the interactive dashboard framework
 
 ---
 
