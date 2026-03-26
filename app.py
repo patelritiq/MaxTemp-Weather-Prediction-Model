@@ -312,3 +312,90 @@ else:
 
 st.markdown("---")
 st.caption("MaxTemp Weather Prediction Model | Ritik Pratap Singh Patel | Data spans 1970–2022")
+
+# ─── Actual vs Predicted ──────────────────────────────────────────────────────
+
+st.markdown("---")
+st.subheader("Actual vs Predicted — Full Backtest")
+st.caption("Showing last 365 days of backtest predictions for readability.")
+
+try:
+    # Run backtest for the selected date's year to show context
+    all_preds = []
+    X = weather[predictors]
+    y = weather["tmax"].shift(-1).ffill()
+
+    for i in range(3650, len(weather), 90):
+        train_X = X.iloc[:i]
+        train_y = y.iloc[:i]
+        test_X  = X.iloc[i:i+90]
+        test_y  = y.iloc[i:i+90]
+        model.fit(train_X, train_y)
+        preds = pd.Series(model.predict(test_X), index=test_X.index)
+        combined = pd.concat([test_y.rename("actual"), preds.rename("prediction")], axis=1)
+        all_preds.append(combined)
+
+    all_preds_df = pd.concat(all_preds).iloc[-365:]
+
+    fig, ax = plt.subplots(figsize=(14, 5))
+    ax.plot(all_preds_df.index, all_preds_df["actual"],
+            color="#3498db", linewidth=1, alpha=0.8, label="Actual TMAX")
+    ax.plot(all_preds_df.index, all_preds_df["prediction"],
+            color="#e74c3c", linewidth=1, alpha=0.8, linestyle="--", label="Predicted TMAX")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Max Temperature (°C)")
+    ax.set_title("Actual vs Predicted Max Temperature (Last Year of Backtest)")
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.4)
+    ax.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%b %Y"))
+    plt.xticks(rotation=30)
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close()
+except Exception as e:
+    st.warning(f"Could not generate actual vs predicted chart: {e}")
+
+# ─── Residual Plot ────────────────────────────────────────────────────────────
+
+st.markdown("---")
+st.subheader("Residual Analysis")
+st.caption("Residual = Predicted − Actual. Positive = overprediction, Negative = underprediction.")
+
+try:
+    residuals = all_preds_df["prediction"] - all_preds_df["actual"]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+    # Residuals over time
+    axes[0].plot(all_preds_df.index, residuals, color="#e67e22", linewidth=0.7, alpha=0.7)
+    axes[0].axhline(y=0, color="black", linewidth=1, linestyle="--")
+    axes[0].fill_between(all_preds_df.index, residuals, 0,
+                         where=(residuals > 0), color="#e74c3c", alpha=0.3, label="Overprediction")
+    axes[0].fill_between(all_preds_df.index, residuals, 0,
+                         where=(residuals < 0), color="#3498db", alpha=0.3, label="Underprediction")
+    axes[0].set_ylabel("Residual (°C)")
+    axes[0].set_title("Residuals Over Time")
+    axes[0].legend(fontsize=8)
+    axes[0].grid(True, linestyle="--", alpha=0.4)
+    axes[0].xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%b %Y"))
+    plt.setp(axes[0].xaxis.get_majorticklabels(), rotation=30)
+
+    # Residual distribution
+    axes[1].hist(residuals, bins=50, color="#e67e22", edgecolor="white", alpha=0.8)
+    axes[1].axvline(x=0, color="black", linewidth=1.5, linestyle="--")
+    axes[1].axvline(x=residuals.mean(), color="red", linewidth=1.5,
+                    label=f"Mean: {residuals.mean():.2f}°C")
+    axes[1].set_xlabel("Residual (°C)")
+    axes[1].set_ylabel("Frequency")
+    axes[1].set_title("Residual Distribution")
+    axes[1].legend()
+    axes[1].grid(True, linestyle="--", alpha=0.4)
+
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close()
+except Exception as e:
+    st.warning(f"Could not generate residual plot: {e}")
+
+st.markdown("---")
+st.caption("MaxTemp Weather Prediction Model | Ritik Pratap Singh Patel | Data spans 1970–2022")

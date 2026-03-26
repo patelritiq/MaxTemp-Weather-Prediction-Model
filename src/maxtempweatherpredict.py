@@ -513,6 +513,64 @@ def main():
     except Exception as e:
         logger.warning(f"Error generating feature importance plot: {e}")
 
+    # --- Plot: Actual vs Predicted ---
+    logger.info("Generating actual vs predicted plot...")
+    try:
+        sample = predictions.iloc[-365:]  # last year for readability
+        fig, ax = plt.subplots(figsize=(14, 5))
+        ax.plot(sample.index, sample["actual"], color="#3498db", linewidth=1,
+                alpha=0.8, label="Actual TMAX")
+        ax.plot(sample.index, sample["prediction"], color="#e74c3c", linewidth=1,
+                alpha=0.8, linestyle="--", label="Predicted TMAX")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Max Temperature (°C)")
+        ax.set_title("Actual vs Predicted Max Temperature (Last Year of Backtest)")
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.4)
+        plt.tight_layout()
+        plt.show()
+        logger.info("Actual vs predicted plot generated successfully")
+    except Exception as e:
+        logger.warning(f"Error generating actual vs predicted plot: {e}")
+
+    # --- Plot: Residual Plot ---
+    logger.info("Generating residual plot...")
+    try:
+        residuals = predictions["prediction"] - predictions["actual"]
+        fig, axes = plt.subplots(2, 1, figsize=(14, 8))
+
+        # Residuals over time
+        axes[0].plot(predictions.index, residuals, color="#e67e22",
+                     linewidth=0.6, alpha=0.7)
+        axes[0].axhline(y=0, color='black', linewidth=1, linestyle='--')
+        axes[0].fill_between(predictions.index, residuals, 0,
+                             where=(residuals > 0), color="#e74c3c", alpha=0.3,
+                             label="Overprediction")
+        axes[0].fill_between(predictions.index, residuals, 0,
+                             where=(residuals < 0), color="#3498db", alpha=0.3,
+                             label="Underprediction")
+        axes[0].set_ylabel("Residual (°C)")
+        axes[0].set_title("Prediction Residuals Over Time")
+        axes[0].legend()
+        axes[0].grid(True, linestyle='--', alpha=0.4)
+
+        # Residual distribution
+        axes[1].hist(residuals, bins=60, color="#e67e22", edgecolor="white", alpha=0.8)
+        axes[1].axvline(x=0, color='black', linewidth=1.5, linestyle='--')
+        axes[1].axvline(x=residuals.mean(), color='red', linewidth=1.5,
+                        linestyle='-', label=f"Mean: {residuals.mean():.2f}°C")
+        axes[1].set_xlabel("Residual (°C)")
+        axes[1].set_ylabel("Frequency")
+        axes[1].set_title("Residual Distribution")
+        axes[1].legend()
+        axes[1].grid(True, linestyle='--', alpha=0.4)
+
+        plt.tight_layout()
+        plt.show()
+        logger.info("Residual plot generated successfully")
+    except Exception as e:
+        logger.warning(f"Error generating residual plot: {e}")
+
     logger.info("Pipeline completed successfully!")
     logger.info(f"Final Results - MAE: {mae:.2f} °C | MSE: {mse:.2f} °C² | RMSE: {rmse:.2f} °C | R²: {r2:.4f} | MAPE: {mape:.2f}%")
 
