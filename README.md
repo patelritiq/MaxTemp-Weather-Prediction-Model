@@ -158,7 +158,7 @@ Model performance is reported per-year and per-season to identify where the mode
    - Per-season performance breakdown
    - Best model saved to `models/best_model.pkl`
    - Execution log saved to `model_training.log`
-   - Visualizations: Snow depth trends, prediction error distribution, feature importance chart
+   - Visualizations: Snow depth trends, error distribution, feature importance, actual vs predicted, residual analysis
 
 ---
 
@@ -213,12 +213,15 @@ RETRAIN_MODEL = True                 # Set False to load saved model instead of 
 
 ## Future Enhancements
 
-- Add LSTM / Transformer model for deep learning comparison
-- Season-specific feature engineering to improve winter performance
-- Real-time weather data integration via Open-Meteo API
-- Multi-day forecasting (3-day, 7-day predictions)
-- Confidence intervals and uncertainty quantification
+- Season-specific feature engineering to improve Winter (MAE: 5.44°C) and Summer (MAE: 3.82°C) performance
+- LSTM / Transformer model for deep learning comparison — expected to improve MAE by 0.3–0.5°C
+- Multi-step forecasting: predict 3-day and 7-day ahead alongside current 1-day prediction
+- Real-time weather data integration via Open-Meteo API (free, no key needed) for live future predictions
 - Optuna hyperparameter tuning for Random Forest and XGBoost
+- Snow and snow depth rolling features to specifically target winter prediction weakness
+- CI/CD with GitHub Actions to auto-validate model on every push
+- Docker support for containerized deployment
+- Confidence intervals and uncertainty quantification per prediction
 
 ---
 

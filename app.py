@@ -310,8 +310,6 @@ if hasattr(model, "coef_"):
 else:
     st.info("Feature importance is only available for Ridge Regression.")
 
-st.markdown("---")
-st.caption("MaxTemp Weather Prediction Model | Ritik Pratap Singh Patel | Data spans 1970–2022")
 
 # ─── Actual vs Predicted ──────────────────────────────────────────────────────
 
